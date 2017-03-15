@@ -24,17 +24,17 @@ public class MonzoCrawler {
     private final Resource rootResource;
 
     private final Queue<Resource> visitQueue;
-    private final Map<String, Resource> knownResources;
+    private final Map<String, Resource> visitedResources;
 
     public MonzoCrawler(
             Client client,
             String rootURL,
             Queue<Resource> visitQueue,
-            Map<String, Resource> knownResources
+            Map<String, Resource> visitedResources
     ) throws MalformedURLException {
         this.client = client;
         this.visitQueue = visitQueue;
-        this.knownResources = knownResources;
+        this.visitedResources = visitedResources;
 
         if (!rootURL.endsWith("/")) {
             rootURL = String.format("%s/", rootURL);
@@ -99,7 +99,7 @@ public class MonzoCrawler {
                     .get(String.class);
 
             resource.setVisited(true);
-            knownResources.put(resource.getUrl().getPath(), resource);
+            visitedResources.put(resource.getUrl().getPath(), resource);
 
             return MonzoHTMLScraper.scrape(HTML);
 
@@ -114,7 +114,7 @@ public class MonzoCrawler {
 
         String path = resource.getUrl().getPath();
 
-        boolean isResourceVisited = knownResources.containsKey(path) && knownResources.get(path).isVisited();
+        boolean isResourceVisited = visitedResources.containsKey(path) && visitedResources.get(path).isVisited();
         boolean isResourceInQueue = visitQueue.contains(resource);
         if (!isResourceVisited && !isResourceInQueue) {
             visitQueue.add(resource);
