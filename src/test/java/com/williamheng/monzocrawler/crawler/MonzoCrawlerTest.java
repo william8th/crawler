@@ -110,7 +110,7 @@ public class MonzoCrawlerTest {
         verify(1, getRequestedFor(urlPathEqualTo("/")));
 
         assertThat(matrix.getResources().size(), is(2));
-        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
+        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(2));
         assertThat(matrix.getResources().get("/page1").getAdjacentSet().size(), is(0));
     }
 

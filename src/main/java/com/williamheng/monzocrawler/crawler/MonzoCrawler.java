@@ -91,19 +91,20 @@ public class MonzoCrawler {
                     .get(String.class);
 
             Elements links = MonzoHTMLScraper.scrape(HTML);
-            List<Resource> validLinks = links.stream()
+            List<Resource> validStructuredLinks = links.stream()
                     .map(e -> toResource(e))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .filter(isSameDomain)
                     .collect(Collectors.toList());
 
-            List<String> adjacentLinks = validLinks.stream()
+            List<String> adjacentLinks = validStructuredLinks.stream()
                     .map(r -> r.getUrl().getPath())
                     .collect(Collectors.toList());
             matrix.addResource(resource, adjacentLinks);
 
-            return validLinks;
+            return validStructuredLinks.stream()
+                    .filter(isSameDomain)
+                    .collect(Collectors.toList());
 
         } catch (WebApplicationException e) {
             log.warn("Unable to reach URL={}", url, e);
