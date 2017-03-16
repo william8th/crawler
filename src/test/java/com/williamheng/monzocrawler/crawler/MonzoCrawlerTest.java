@@ -98,4 +98,20 @@ public class MonzoCrawlerTest {
         assertThat(matrix.getResources().size(), is(1));
     }
 
+    @Test
+    public void onlyVisitsSingleDomain() throws Exception {
+
+        stubURIWithContent("/", "<a href=\"http://localhost:8080/page1\">Page1</a><a href=\"http://google.com\">Google</a>");
+        stubURIWithContent("/page1", "Nothing");
+
+        Future<Matrix> result = crawler.initCrawlOperation();
+        Matrix matrix = result.get(1, TimeUnit.SECONDS);
+
+        verify(1, getRequestedFor(urlPathEqualTo("/")));
+
+        assertThat(matrix.getResources().size(), is(2));
+        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
+        assertThat(matrix.getResources().get("/page1").getAdjacentSet().size(), is(0));
+    }
+
 }

@@ -15,6 +15,7 @@ import java.net.URL;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -72,7 +73,7 @@ public class MonzoCrawler {
     /**
      * Operations:
      * 1. Get content from URL
-     * 2. Add URL to known resources
+     * 2. Add same-domain URL to known resources
      *
      * @param resource The resource to visit
      * @return Links scraped from page
@@ -81,6 +82,7 @@ public class MonzoCrawler {
 
         URL url = resource.getUrl();
         log.info("Crawling {}", url);
+        Predicate<Resource> isSameDomain = r -> r.getUrl().getHost().equalsIgnoreCase(rootResource.getUrl().getHost());
 
         try {
             String HTML = client
@@ -93,6 +95,7 @@ public class MonzoCrawler {
                     .map(e -> toResource(e))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
+                    .filter(isSameDomain)
                     .collect(Collectors.toList());
 
             List<String> adjacentLinks = validLinks.stream()
