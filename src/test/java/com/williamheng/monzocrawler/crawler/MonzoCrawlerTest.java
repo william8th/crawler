@@ -1,15 +1,15 @@
 package com.williamheng.monzocrawler.crawler;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.williamheng.monzocrawler.model.Matrix;
 import com.williamheng.monzocrawler.model.Resource;
+import com.williamheng.monzocrawler.model.Vertex;
 import org.glassfish.jersey.client.JerseyClientBuilder;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -29,17 +29,14 @@ public class MonzoCrawlerTest {
 
     private MonzoCrawler crawler;
     private Queue<Resource> queue;
-    private Map<String, Resource> resources;
 
     @Before
     public void setUp() throws Exception {
         queue = new ConcurrentLinkedQueue<>();
-        resources = new ConcurrentHashMap<>();
         crawler = new MonzoCrawler(
                 JerseyClientBuilder.createClient(),
                 URLString,
-                queue,
-                resources
+                queue
         );
     }
 
@@ -49,7 +46,7 @@ public class MonzoCrawlerTest {
         stubURIWithContent("/", "Something");
 
         // When crawler is initiated
-        Future<String> result = crawler.initCrawlOperation();
+        Future<Matrix> result = crawler.initCrawlOperation();
         result.get(1, TimeUnit.SECONDS);
 
         // Then the root URL is visited
@@ -63,14 +60,22 @@ public class MonzoCrawlerTest {
         stubURIWithContent("/page", "<a href=\"/\">Index</a>");
 
         // When I crawl from the root URL
-        Future<String> result = crawler.initCrawlOperation();
-        result.get(2, TimeUnit.SECONDS);
+        Future<Matrix> result = crawler.initCrawlOperation();
+        Matrix matrix = result.get(1, TimeUnit.SECONDS);
 
         // Then I expect to not see the same URL crawled again
         verify(1, getRequestedFor(urlPathEqualTo("/")));
         verify(1, getRequestedFor(urlPathEqualTo("/page")));
-        assertThat(resources.size(), is(2));
         assertThat(queue.size(), is(0));
+        assertThat(matrix.getResources().size(), is(2));
+
+        Vertex rootVertex = matrix.getResources().get("/");
+        assertThat(rootVertex.getAdjacentSet().size(), is(1));
+        assertThat(rootVertex.getAdjacentSet().contains("/page"), is(true));
+
+        Vertex pageVertex = matrix.getResources().get("/page");
+        assertThat(pageVertex.getAdjacentSet().size(), is(1));
+        assertThat(pageVertex.getAdjacentSet().contains("/"), is(true));
     }
 
     @Test
@@ -84,13 +89,13 @@ public class MonzoCrawlerTest {
                 )
         );
 
-        Future<String> result = crawler.initCrawlOperation();
-        result.get(1, TimeUnit.SECONDS);
+        Future<Matrix> result = crawler.initCrawlOperation();
+        Matrix matrix = result.get(1, TimeUnit.SECONDS);
 
         verify(1, getRequestedFor(urlPathEqualTo("/")));
         verify(1, getRequestedFor(urlPathEqualTo("/page")));
-        assertThat(resources.size(), is(1));
         assertThat(queue.size(), is(0));
+        assertThat(matrix.getResources().size(), is(1));
     }
 
 }
