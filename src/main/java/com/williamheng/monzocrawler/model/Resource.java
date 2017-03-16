@@ -17,9 +17,6 @@ public class Resource {
     @NonNull
     private final String title;
 
-    @Setter
-    private boolean visited = false;
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
