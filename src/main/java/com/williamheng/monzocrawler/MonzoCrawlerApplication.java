@@ -5,6 +5,7 @@ import com.williamheng.monzocrawler.model.Matrix;
 import com.williamheng.monzocrawler.model.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.*;
+import org.apache.commons.io.IOUtils;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.JerseyClientBuilder;
@@ -12,10 +13,10 @@ import org.glassfish.jersey.client.JerseyClientBuilder;
 import javax.ws.rs.client.Client;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
@@ -69,14 +70,14 @@ public class MonzoCrawlerApplication {
 
             Matrix matrix = matrixFuture.get();
 
-            Path graphHTMLPath = Paths.get(MonzoCrawlerApplication.class.getClassLoader().getResource("graph.html").toURI());
-            String graphHTML = new String(Files.readAllBytes(graphHTMLPath));
-
+            InputStream graphHTMLSource = MonzoCrawlerApplication.class.getClassLoader().getResourceAsStream("graph.html");
+            String graphHTML = IOUtils.toString(graphHTMLSource, Charset.defaultCharset());
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(Paths.get("output.html")));
             D3Printer.printMatrix(matrix, graphHTML, bufferedOutputStream);
 
             monzoCrawlerOrchestrator.shutdown();
             log.info("Done.");
+            log.info("Output can be found in output.html");
 
         } catch (ParseException e) {
             log.debug("Error creating command line parser", e);
@@ -86,7 +87,7 @@ public class MonzoCrawlerApplication {
             log.error("URL given is malformed. Please do not include a trailing slash. Example:\nhttp://google.com");
         } catch (InterruptedException | ExecutionException e) {
             log.error("Crawling operation is interrupted");
-        } catch (URISyntaxException | IOException e) {
+        } catch (IOException e) {
             log.error("Application error: failed to load graph HTML");
             log.debug("Failed to load graph HTML", e);
         }

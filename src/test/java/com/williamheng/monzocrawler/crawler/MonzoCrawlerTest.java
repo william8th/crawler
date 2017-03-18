@@ -136,6 +136,7 @@ public class MonzoCrawlerTest {
                 .synchronizedVisitedURLs(new HashSet<>())
                 .matrix(matrix)
                 .rootURL(new URL(HOST_URL))
+                .addExternalLinks(true)
                 .build();
 
         // And that the crawler is to crawl a page with an external link
