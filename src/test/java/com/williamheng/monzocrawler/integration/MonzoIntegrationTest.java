@@ -1,8 +1,7 @@
 package com.williamheng.monzocrawler.integration;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import com.williamheng.monzocrawler.crawler.MonzoCrawler;
+import com.williamheng.monzocrawler.crawler.MonzoCrawlerOrchestrator;
 import com.williamheng.monzocrawler.model.Matrix;
 import com.williamheng.monzocrawler.model.Resource;
 import com.williamheng.monzocrawler.model.Vertex;
@@ -11,13 +10,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.net.URL;
 import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
@@ -31,13 +25,13 @@ public class MonzoIntegrationTest {
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().port(8080));
 
-    private MonzoCrawler crawler;
-    private ConcurrentLinkedQueue<Resource> visitQueue;
+    private MonzoCrawlerOrchestrator crawler;
+    private BlockingQueue<Resource> visitQueue;
 
     @Before
     public void setUp() throws Exception {
-        visitQueue = new ConcurrentLinkedQueue<>();
-        crawler = new MonzoCrawler(
+        visitQueue = new LinkedBlockingQueue<>();
+        crawler = new MonzoCrawlerOrchestrator(
                 JerseyClientBuilder.createClient(),
                 "http://localhost:8080",
                 visitQueue
@@ -54,7 +48,7 @@ public class MonzoIntegrationTest {
         Future<Matrix> result = crawler.initCrawlOperation();
 
         assertThat(result, notNullValue());
-        Matrix matrix = result.get(1, TimeUnit.SECONDS);
+        Matrix matrix = result.get();
 
         verify(1, getRequestedFor(urlEqualTo("/")));
         verify(1, getRequestedFor(urlEqualTo("/page2")));

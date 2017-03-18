@@ -8,49 +8,64 @@ import org.glassfish.jersey.client.JerseyClientBuilder;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.Mockito;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.Invocation;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.HashSet;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.williamheng.monzocrawler.testutil.TestUtil.stubURIWithContent;
+import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 public class MonzoCrawlerTest {
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().port(8080));
 
-    private static String URLString = "http://localhost:8080";
+    private static String HOST_URL = "http://localhost:8080";
 
-    private MonzoCrawler crawler;
-    private Queue<Resource> queue;
+    private MonzoCrawler monzoCrawler;
+    private BlockingQueue<Resource> queue;
+    private Matrix matrix;
 
     @Before
     public void setUp() throws Exception {
-        queue = new ConcurrentLinkedQueue<>();
-        crawler = new MonzoCrawler(
+        queue = new LinkedBlockingQueue<>();
+        matrix = new Matrix();
+        monzoCrawler = new MonzoCrawler(
                 JerseyClientBuilder.createClient(),
-                URLString,
-                queue
+                queue,
+                new HashSet<>(),
+                matrix,
+                new URL(HOST_URL)
         );
     }
 
     @Test
     public void visitsRootURL() throws Exception {
-        // Given a root URL
+        // Given a root URL to crawl
         stubURIWithContent("/", "Something");
+        queue.add(buildResourceForRelativePath("/", ""));
 
-        // When crawler is initiated
-        Future<Matrix> result = crawler.initCrawlOperation();
-        result.get(1, TimeUnit.SECONDS);
+        // When crawlerOrchestrator is initiated
+        monzoCrawler.run();
 
         // Then the root URL is visited
         verify(1, getRequestedFor(urlPathEqualTo("/")));
+        assertThat(matrix.getResources().size(), is(1));
+        assertThat(matrix.getResources().get("/"), notNullValue());
     }
 
     @Test
@@ -58,10 +73,10 @@ public class MonzoCrawlerTest {
         // Given that I have two pages linked to each other (thus creating a loop)
         stubURIWithContent("/", "<a href=\"/page\">Page</a>");
         stubURIWithContent("/page", "<a href=\"/\">Index</a>");
+        queue.add(buildResourceForRelativePath("/", ""));
 
         // When I crawl from the root URL
-        Future<Matrix> result = crawler.initCrawlOperation();
-        Matrix matrix = result.get(1, TimeUnit.SECONDS);
+        monzoCrawler.run();
 
         // Then I expect to not see the same URL crawled again
         verify(1, getRequestedFor(urlPathEqualTo("/")));
@@ -80,6 +95,7 @@ public class MonzoCrawlerTest {
 
     @Test
     public void ignoresNonReachableURLs() throws Exception {
+        // Given a page with a non-reachable URL
         stubURIWithContent("/", "<a href=\"/page\">Not found</a>");
         stubFor(
                 get(
@@ -88,10 +104,12 @@ public class MonzoCrawlerTest {
                         aResponse().withStatus(404)
                 )
         );
+        queue.add(buildResourceForRelativePath("/", ""));
 
-        Future<Matrix> result = crawler.initCrawlOperation();
-        Matrix matrix = result.get(1, TimeUnit.SECONDS);
+        // When crawler crawls
+        monzoCrawler.run();
 
+        // Then I expect the crawler to ignore the error and continue on with other operations
         verify(1, getRequestedFor(urlPathEqualTo("/")));
         verify(1, getRequestedFor(urlPathEqualTo("/page")));
         assertThat(queue.size(), is(0));
@@ -101,17 +119,35 @@ public class MonzoCrawlerTest {
     @Test
     public void onlyVisitsSingleDomain() throws Exception {
 
-        stubURIWithContent("/", "<a href=\"http://localhost:8080/page1\">Page1</a><a href=\"http://google.com\">Google</a>");
-        stubURIWithContent("/page1", "Nothing");
+        // Given a crawler with mock JAX-RS client
+        final String baseURL = String.format("%s/", HOST_URL);
+        final String baseURLContent = "<a href=\"http://google.com\">Google</a>";
+        Client mockClient = Mockito.mock(Client.class);
+        WebTarget mockWebTarget = Mockito.mock(WebTarget.class);
+        Invocation.Builder mockBuilder = Mockito.mock(Invocation.Builder.class);
 
-        Future<Matrix> result = crawler.initCrawlOperation();
-        Matrix matrix = result.get(1, TimeUnit.SECONDS);
+        when(mockClient.target(baseURL)).thenReturn(mockWebTarget);
+        when(mockWebTarget.request(MediaType.TEXT_HTML)).thenReturn(mockBuilder);
+        when(mockBuilder.get(String.class)).thenReturn(baseURLContent);
+        monzoCrawler = new MonzoCrawler(mockClient, queue, new HashSet<>(), matrix, new URL(HOST_URL));
 
-        verify(1, getRequestedFor(urlPathEqualTo("/")));
+        // And that the crawler is to crawl a page with an external link
+        queue.add(buildResourceForRelativePath("/", ""));
 
-        assertThat(matrix.getResources().size(), is(2));
-        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(2));
-        assertThat(matrix.getResources().get("/page1").getAdjacentSet().size(), is(0));
+        // When crawler crawls
+        monzoCrawler.run();
+
+        // Then I expect the root URL and Page 1 to be crawled
+        Mockito.verify(mockClient, times(1)).target(baseURL);
+        Mockito.verify(mockClient, times(0)).target("http://google.com");
+
+        // And that
+        assertThat(matrix.getResources().size(), is(1));
+        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
     }
 
+    private static Resource buildResourceForRelativePath(String path, String title) throws MalformedURLException {
+        String url = String.format("%s%s", HOST_URL, path);
+        return new Resource(new URL(url), title);
+    }
 }
