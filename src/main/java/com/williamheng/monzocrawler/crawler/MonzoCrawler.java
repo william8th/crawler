@@ -134,7 +134,7 @@ public class MonzoCrawler implements Runnable {
     }
 
     private void addToQueueIfNotVisited(Resource resource) {
-        boolean isResourceVisited = matrix.resourceExists(resource);
+        boolean isResourceVisited = synchronizedVisitedURLs.contains(resource.getUrl().toString());
         boolean isResourceInQueue = visitQueue.contains(resource);
         if (!isResourceVisited && !isResourceInQueue) {
             visitQueue.add(resource);
