@@ -2,7 +2,7 @@ package com.williamheng.monzocrawler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.williamheng.monzocrawler.model.Matrix;
+import com.williamheng.monzocrawler.model.Graph;
 import com.williamheng.monzocrawler.model.Vertex;
 import com.williamheng.monzocrawler.model.json.JSONGraph;
 import com.williamheng.monzocrawler.model.json.JSONLink;
@@ -35,7 +35,7 @@ public class D3Printer {
      };
      */
 
-    public static void printMatrix(Matrix matrix, String graphHTML, OutputStream outputStream) {
+    public static void printGraph(Graph graph, String graphHTML, OutputStream outputStream) {
 
         int groupCount = 1;
 
@@ -43,11 +43,11 @@ public class D3Printer {
         ArrayList<JSONNode> nodes = new ArrayList<>();
         ArrayList<JSONLink> links = new ArrayList<>();
 
-        for (Map.Entry<String, Vertex> localNode : matrix.getResources().entrySet()) {
+        for (Map.Entry<String, Vertex> localNode : graph.getVertices().entrySet()) {
 
             String sourceURL = localNode.getKey();
             Vertex vertex = localNode.getValue();
-            Iterator<String> vertexDependencies = vertex.getAdjacentSet().iterator();
+            Iterator<String> vertexDependencies = vertex.getAdjacentVertices().iterator();
 
             urlNodes.add(sourceURL);
 

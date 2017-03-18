@@ -7,7 +7,11 @@ A simple web crawler that crawls only a single domain. Example graph shown above
 
 # Dependencies
 - Maven
-- Java
+- Java 1.8
+
+# Using it with your IDE
+This code base is developed using IntelliJ with Lombok plugin installed. Annotation processing has to be activated to work well with the code base.
+This does not mean that other IDEs can't be used but it is preferred that your IDE can see the generated functions/classes.
 
 # Getting started
 - Run `mvn package` to obtain a runnable JAR
@@ -27,6 +31,14 @@ usage: Monzo Webcrawler
                                   instantiate
 ```
 Use `java -jar target/monzo-webcrawler-1.0-SNAPSHOT.jar --help` to see the different options
+
+## How it works
+1. A number of workers (crawlers) is created
+2. A queue is maintained for the crawlers to visit
+3. Workers act as both producers and consumers (taking and submitting to the queue)
+4. The workers will crawl and wait for a URL until there's no more URLs to crawl
+5. The workers will terminate itself once it waits for more than the idle time and there's no more URL to crawl
+ 
 
 ## Credits
 Author: William Heng

@@ -1,7 +1,7 @@
 package com.williamheng.monzocrawler.crawler;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import com.williamheng.monzocrawler.model.Matrix;
+import com.williamheng.monzocrawler.model.Graph;
 import com.williamheng.monzocrawler.model.Resource;
 import com.williamheng.monzocrawler.model.Vertex;
 import org.glassfish.jersey.client.JerseyClientBuilder;
@@ -38,17 +38,17 @@ public class MonzoCrawlerTest {
 
     private MonzoCrawler monzoCrawler;
     private BlockingQueue<Resource> queue;
-    private Matrix matrix;
+    private Graph graph;
 
     @Before
     public void setUp() throws Exception {
         queue = new LinkedBlockingQueue<>();
-        matrix = new Matrix();
+        graph = new Graph();
         monzoCrawler = MonzoCrawler.builder()
                 .client(JerseyClientBuilder.createClient())
                 .visitQueue(queue)
                 .synchronizedVisitedURLs(new HashSet<>())
-                .matrix(matrix)
+                .graph(graph)
                 .rootURL(new URL(HOST_URL))
                 .addExternalLinks(true)
                 .build();
@@ -65,8 +65,8 @@ public class MonzoCrawlerTest {
 
         // Then the root URL is visited
         verify(1, getRequestedFor(urlPathEqualTo("/")));
-        assertThat(matrix.getResources().size(), is(1));
-        assertThat(matrix.getResources().get("/"), notNullValue());
+        assertThat(graph.getVertices().size(), is(1));
+        assertThat(graph.getVertices().get("/"), notNullValue());
     }
 
     @Test
@@ -83,15 +83,15 @@ public class MonzoCrawlerTest {
         verify(1, getRequestedFor(urlPathEqualTo("/")));
         verify(1, getRequestedFor(urlPathEqualTo("/page")));
         assertThat(queue.size(), is(0));
-        assertThat(matrix.getResources().size(), is(2));
+        assertThat(graph.getVertices().size(), is(2));
 
-        Vertex rootVertex = matrix.getResources().get("/");
-        assertThat(rootVertex.getAdjacentSet().size(), is(1));
-        assertThat(rootVertex.getAdjacentSet().contains("/page"), is(true));
+        Vertex rootVertex = graph.getVertices().get("/");
+        assertThat(rootVertex.getAdjacentVertices().size(), is(1));
+        assertThat(rootVertex.getAdjacentVertices().contains("/page"), is(true));
 
-        Vertex pageVertex = matrix.getResources().get("/page");
-        assertThat(pageVertex.getAdjacentSet().size(), is(1));
-        assertThat(pageVertex.getAdjacentSet().contains("/"), is(true));
+        Vertex pageVertex = graph.getVertices().get("/page");
+        assertThat(pageVertex.getAdjacentVertices().size(), is(1));
+        assertThat(pageVertex.getAdjacentVertices().contains("/"), is(true));
     }
 
     @Test
@@ -114,7 +114,7 @@ public class MonzoCrawlerTest {
         verify(1, getRequestedFor(urlPathEqualTo("/")));
         verify(1, getRequestedFor(urlPathEqualTo("/page")));
         assertThat(queue.size(), is(0));
-        assertThat(matrix.getResources().size(), is(1));
+        assertThat(graph.getVertices().size(), is(1));
     }
 
     @Test
@@ -134,7 +134,7 @@ public class MonzoCrawlerTest {
                 .client(mockClient)
                 .visitQueue(queue)
                 .synchronizedVisitedURLs(new HashSet<>())
-                .matrix(matrix)
+                .graph(graph)
                 .rootURL(new URL(HOST_URL))
                 .addExternalLinks(true)
                 .build();
@@ -150,9 +150,9 @@ public class MonzoCrawlerTest {
         Mockito.verify(mockClient, times(0)).target("http://google.com");
 
         // And that
-        assertThat(matrix.getResources().size(), is(1));
-        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
-        assertThat(matrix.getResources().get("/").getAdjacentSet().contains("http://google.com"), is(true));
+        assertThat(graph.getVertices().size(), is(1));
+        assertThat(graph.getVertices().get("/").getAdjacentVertices().size(), is(1));
+        assertThat(graph.getVertices().get("/").getAdjacentVertices().contains("http://google.com"), is(true));
     }
 
     @Test
@@ -162,7 +162,7 @@ public class MonzoCrawlerTest {
                 .client(JerseyClientBuilder.createClient())
                 .visitQueue(queue)
                 .synchronizedVisitedURLs(new HashSet<>())
-                .matrix(matrix)
+                .graph(graph)
                 .rootURL(new URL(HOST_URL))
                 .addExternalLinks(false)
                 .build();
@@ -174,9 +174,9 @@ public class MonzoCrawlerTest {
         monzoCrawler.run();
 
         // Then I expect the external link to not be added
-        assertThat(matrix.getResources().size(), is(2));
-        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
-        assertThat(matrix.getResources().get("/").getAdjacentSet().contains("http://google.com"), is(false));
+        assertThat(graph.getVertices().size(), is(2));
+        assertThat(graph.getVertices().get("/").getAdjacentVertices().size(), is(1));
+        assertThat(graph.getVertices().get("/").getAdjacentVertices().contains("http://google.com"), is(false));
     }
 
     private static Resource buildResourceForRelativePath(String path, String title) throws MalformedURLException {

@@ -2,7 +2,7 @@ package com.williamheng.monzocrawler.integration;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import com.williamheng.monzocrawler.crawler.MonzoCrawlerOrchestrator;
-import com.williamheng.monzocrawler.model.Matrix;
+import com.williamheng.monzocrawler.model.Graph;
 import com.williamheng.monzocrawler.model.Resource;
 import com.williamheng.monzocrawler.model.Vertex;
 import org.glassfish.jersey.client.JerseyClientBuilder;
@@ -48,32 +48,32 @@ public class MonzoIntegrationTest {
         stubURIWithFilename("/page3", "page3.html");
         stubURIWithFilename("/page4", "page4.html");
 
-        Future<Matrix> result = crawler.initCrawlOperation();
+        Future<Graph> result = crawler.initCrawlOperation();
 
         assertThat(result, notNullValue());
-        Matrix matrix = result.get();
+        Graph graph = result.get();
 
         verify(1, getRequestedFor(urlEqualTo("/")));
         verify(1, getRequestedFor(urlEqualTo("/page2")));
         verify(1, getRequestedFor(urlEqualTo("/page3")));
         verify(1, getRequestedFor(urlEqualTo("/page4")));
 
-        assertThat(matrix.getResources().size(), is(4));
+        assertThat(graph.getVertices().size(), is(4));
 
-        verticesAdjacentToVertex(matrix, "/", "/page2", "/page3");
-        verticesAdjacentToVertex(matrix, "/page2", "/page3", "/page4");
-        verticesAdjacentToVertex(matrix, "/page3", "/page4");
-        verticesAdjacentToVertex(matrix, "/page4", "/");
+        verticesAdjacentToVertex(graph, "/", "/page2", "/page3");
+        verticesAdjacentToVertex(graph, "/page2", "/page3", "/page4");
+        verticesAdjacentToVertex(graph, "/page3", "/page4");
+        verticesAdjacentToVertex(graph, "/page4", "/");
     }
 
     private static void verticesAdjacentToVertex(
-            Matrix matrix, String vertexID, String... adjacentVertices) {
-        assertThat(matrix.getResources().containsKey(vertexID), is(true));
-        Vertex vertex = matrix.getResources().get(vertexID);
+            Graph graph, String vertexID, String... adjacentVertices) {
+        assertThat(graph.getVertices().containsKey(vertexID), is(true));
+        Vertex vertex = graph.getVertices().get(vertexID);
 
         Arrays.stream(adjacentVertices)
                 .forEach(link ->
-                        assertThat(vertex.getAdjacentSet().contains(link), is(true))
+                        assertThat(vertex.getAdjacentVertices().contains(link), is(true))
                 );
     }
 

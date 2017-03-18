@@ -1,7 +1,7 @@
 package com.williamheng.monzocrawler;
 
 import com.williamheng.monzocrawler.crawler.MonzoCrawlerOrchestrator;
-import com.williamheng.monzocrawler.model.Matrix;
+import com.williamheng.monzocrawler.model.Graph;
 import com.williamheng.monzocrawler.model.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.*;
@@ -66,14 +66,14 @@ public class MonzoCrawlerApplication {
             MonzoCrawlerOrchestrator monzoCrawlerOrchestrator = new MonzoCrawlerOrchestrator(client, url, queue, numberOfWorkers, idleTime, addExternalLinks);
 
             log.info("Crawling URL {} with {} workers", url, numberOfWorkers);
-            Future<Matrix> matrixFuture = monzoCrawlerOrchestrator.initCrawlOperation();
+            Future<Graph> graphFuture = monzoCrawlerOrchestrator.initCrawlOperation();
 
-            Matrix matrix = matrixFuture.get();
+            Graph graph = graphFuture.get();
 
             InputStream graphHTMLSource = MonzoCrawlerApplication.class.getClassLoader().getResourceAsStream("graph.html");
             String graphHTML = IOUtils.toString(graphHTMLSource, Charset.defaultCharset());
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(Paths.get("output.html")));
-            D3Printer.printMatrix(matrix, graphHTML, bufferedOutputStream);
+            D3Printer.printGraph(graph, graphHTML, bufferedOutputStream);
 
             monzoCrawlerOrchestrator.shutdown();
             log.info("Done.");

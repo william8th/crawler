@@ -1,7 +1,7 @@
 package com.williamheng.monzocrawler.crawler;
 
 
-import com.williamheng.monzocrawler.model.Matrix;
+import com.williamheng.monzocrawler.model.Graph;
 import com.williamheng.monzocrawler.model.Resource;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,6 +14,16 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.*;
 
+/**
+ * How it works:
+ *
+ * 1. A number of workers (crawlers) is created
+ * 2. A queue is maintained for the crawlers to visit
+ * 3. Workers act as both producers and consumers (taking and submitting to the queue)
+ * 4. The workers will crawl and wait for a URL until there's no more URLs to crawl
+ * 5. The workers will terminate itself once it waits for more than the idle time and there's no more URL to crawl
+ *
+ */
 @Slf4j
 public class MonzoCrawlerOrchestrator {
 
@@ -26,7 +36,7 @@ public class MonzoCrawlerOrchestrator {
     private boolean addExternalLinks;
     private final ExecutorService executorService;
 
-    private final Matrix matrix = new Matrix();
+    private final Graph graph = new Graph();
 
     public MonzoCrawlerOrchestrator(
             Client client,
@@ -51,7 +61,7 @@ public class MonzoCrawlerOrchestrator {
         this.rootResource = new Resource(url, url.getPath());
     }
 
-    public Future<Matrix> initCrawlOperation() {
+    public Future<Graph> initCrawlOperation() {
 
         return CompletableFuture.supplyAsync(() -> {
 
@@ -64,7 +74,7 @@ public class MonzoCrawlerOrchestrator {
                                         .client(client)
                                         .visitQueue(visitQueue)
                                         .synchronizedVisitedURLs(visitedURLs)
-                                        .matrix(matrix)
+                                        .graph(graph)
                                         .rootURL(rootResource.getUrl())
                                         .idleTime(idleTime)
                                         .addExternalLinks(addExternalLinks)
@@ -81,7 +91,7 @@ public class MonzoCrawlerOrchestrator {
                 }
             });
 
-            return MonzoCrawlerOrchestrator.this.matrix;
+            return MonzoCrawlerOrchestrator.this.graph;
         });
     }
 

@@ -1,8 +1,7 @@
 package com.williamheng.monzocrawler.crawler;
 
-import com.williamheng.monzocrawler.model.Matrix;
+import com.williamheng.monzocrawler.model.Graph;
 import com.williamheng.monzocrawler.model.Resource;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +36,7 @@ public class MonzoCrawler implements Runnable {
     private final Set<String> synchronizedVisitedURLs;
 
     @NonNull
-    private final Matrix matrix;
+    private final Graph graph;
 
     @NonNull
     private final URL rootURL;
@@ -105,7 +104,7 @@ public class MonzoCrawler implements Runnable {
             List<String> adjacentLinks = new ArrayList<>();
             adjacentLinks.addAll(internalAdjacentLinks);
             if (addExternalLinks) adjacentLinks.addAll(externalAdjacentLinks);
-            matrix.addResource(resource, adjacentLinks);
+            graph.addVertex(resource, adjacentLinks);
 
             validStructuredLinks.stream()
                     .filter(isInternalDomain)
