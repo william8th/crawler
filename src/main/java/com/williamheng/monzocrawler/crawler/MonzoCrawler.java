@@ -3,6 +3,8 @@ package com.williamheng.monzocrawler.crawler;
 import com.williamheng.monzocrawler.model.Matrix;
 import com.williamheng.monzocrawler.model.Resource;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -12,6 +14,7 @@ import javax.ws.rs.client.Client;
 import javax.ws.rs.core.MediaType;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -20,15 +23,27 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-@AllArgsConstructor
 @Slf4j
+@Builder
 public class MonzoCrawler implements Runnable {
 
+    @NonNull
     private final Client client;
+
+    @NonNull
     private final BlockingQueue<Resource> visitQueue;
+
+    @NonNull
     private final Set<String> synchronizedVisitedURLs;
+
+    @NonNull
     private final Matrix matrix;
+
+    @NonNull
     private final URL rootURL;
+
+    private final int idleTime;
+    private boolean addExternalLinks;
 
     /**
      * Operations:
@@ -40,7 +55,7 @@ public class MonzoCrawler implements Runnable {
 
         while (true) {
             try {
-                Resource resource = visitQueue.poll(5, TimeUnit.SECONDS);
+                Resource resource = visitQueue.poll(idleTime, TimeUnit.SECONDS);
 
                 // Poll tells us that there's no longer any resource in the queue to crawl
                 if (resource == null) break;
@@ -59,7 +74,8 @@ public class MonzoCrawler implements Runnable {
     private void crawl(Resource resource) {
         URL url = resource.getUrl();
         log.info("Crawling {}", url);
-        Predicate<Resource> isSameDomain = r -> r.getUrl().getHost().equalsIgnoreCase(rootURL.getHost());
+        Predicate<Resource> isInternalDomain = r -> r.getUrl().getHost().equalsIgnoreCase(rootURL.getHost());
+        Predicate<Resource> isExternalDomain = r -> !r.getUrl().getHost().equalsIgnoreCase(rootURL.getHost());
 
         try {
             String HTML = client
@@ -74,13 +90,25 @@ public class MonzoCrawler implements Runnable {
                     .map(Optional::get)
                     .collect(Collectors.toList());
 
-            List<String> adjacentLinks = validStructuredLinks.stream()
+            // Internal links are saved by path name e.g. /some/path
+            List<String> internalAdjacentLinks = validStructuredLinks.stream()
+                    .filter(isInternalDomain)
                     .map(r -> r.getUrl().getPath())
                     .collect(Collectors.toList());
+
+            // External links are saved in the form of absolute URL e.g. http://google.com
+            List<String> externalAdjacentLinks = validStructuredLinks.stream()
+                    .filter(isExternalDomain)
+                    .map(r -> r.getUrl().toString())
+                    .collect(Collectors.toList());
+
+            List<String> adjacentLinks = new ArrayList<>();
+            adjacentLinks.addAll(internalAdjacentLinks);
+            if (addExternalLinks) adjacentLinks.addAll(externalAdjacentLinks);
             matrix.addResource(resource, adjacentLinks);
 
             validStructuredLinks.stream()
-                    .filter(isSameDomain)
+                    .filter(isInternalDomain)
                     .forEach(this::addToQueueIfNotVisited);
 
         } catch (WebApplicationException e) {

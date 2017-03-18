@@ -44,13 +44,14 @@ public class MonzoCrawlerTest {
     public void setUp() throws Exception {
         queue = new LinkedBlockingQueue<>();
         matrix = new Matrix();
-        monzoCrawler = new MonzoCrawler(
-                JerseyClientBuilder.createClient(),
-                queue,
-                new HashSet<>(),
-                matrix,
-                new URL(HOST_URL)
-        );
+        monzoCrawler = MonzoCrawler.builder()
+                .client(JerseyClientBuilder.createClient())
+                .visitQueue(queue)
+                .synchronizedVisitedURLs(new HashSet<>())
+                .matrix(matrix)
+                .rootURL(new URL(HOST_URL))
+                .addExternalLinks(true)
+                .build();
     }
 
     @Test
@@ -129,7 +130,13 @@ public class MonzoCrawlerTest {
         when(mockClient.target(baseURL)).thenReturn(mockWebTarget);
         when(mockWebTarget.request(MediaType.TEXT_HTML)).thenReturn(mockBuilder);
         when(mockBuilder.get(String.class)).thenReturn(baseURLContent);
-        monzoCrawler = new MonzoCrawler(mockClient, queue, new HashSet<>(), matrix, new URL(HOST_URL));
+        monzoCrawler = MonzoCrawler.builder()
+                .client(mockClient)
+                .visitQueue(queue)
+                .synchronizedVisitedURLs(new HashSet<>())
+                .matrix(matrix)
+                .rootURL(new URL(HOST_URL))
+                .build();
 
         // And that the crawler is to crawl a page with an external link
         queue.add(buildResourceForRelativePath("/", ""));
@@ -144,6 +151,31 @@ public class MonzoCrawlerTest {
         // And that
         assertThat(matrix.getResources().size(), is(1));
         assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
+        assertThat(matrix.getResources().get("/").getAdjacentSet().contains("http://google.com"), is(true));
+    }
+
+    @Test
+    public void doesNotAddExternalLinks() throws Exception {
+        // Given a crawler that does not add external links
+        monzoCrawler = MonzoCrawler.builder()
+                .client(JerseyClientBuilder.createClient())
+                .visitQueue(queue)
+                .synchronizedVisitedURLs(new HashSet<>())
+                .matrix(matrix)
+                .rootURL(new URL(HOST_URL))
+                .addExternalLinks(false)
+                .build();
+        stubURIWithContent("/", "<a href=\"/page1\">Page1</a><a href=\"http://google.com\">Google</a>");
+        stubURIWithContent("/page1", "");
+        queue.add(buildResourceForRelativePath("/", ""));
+
+        // When crawler crawls
+        monzoCrawler.run();
+
+        // Then I expect the external link to not be added
+        assertThat(matrix.getResources().size(), is(2));
+        assertThat(matrix.getResources().get("/").getAdjacentSet().size(), is(1));
+        assertThat(matrix.getResources().get("/").getAdjacentSet().contains("http://google.com"), is(false));
     }
 
     private static Resource buildResourceForRelativePath(String path, String title) throws MalformedURLException {

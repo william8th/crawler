@@ -34,7 +34,10 @@ public class MonzoIntegrationTest {
         crawler = new MonzoCrawlerOrchestrator(
                 JerseyClientBuilder.createClient(),
                 "http://localhost:8080",
-                visitQueue
+                visitQueue,
+                3,
+                1,
+                false
         );
     }
 
